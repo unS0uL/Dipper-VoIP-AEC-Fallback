@@ -125,6 +125,7 @@ Then reboot.
 - Keyboard clicks are short transients, not steady noise. Stronger generic NS can damage consonants and make speech metallic before it removes all keyboard noise.
 - Do not alter gain, DMIC routing, echo-reference controls, ACDB, or DSP firmware live. Those parameters are HAL/DSP-owned and device-calibrated.
 - Not every VoIP application is guaranteed to supply a good software AEC fallback. Test each app independently.
+- **Known incompatibility (user-reported):** enabling both Audio Modification Library (AML) and ViPER4AndroidFX caused speakerphone far-end echo to return. Keep both modules disabled with this module until their interaction is investigated with a live call trace.
 
 ## Technical documentation
 

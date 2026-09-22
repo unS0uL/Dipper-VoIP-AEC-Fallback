@@ -99,6 +99,35 @@ Telegram earpiece calls and cellular calls in both modes also passed a user test
 
 The Android framework does not reveal Telegram's internal algorithm. Therefore the correct statement is: removing the ineffective Android hardware AEC allowed an effective application-level fallback in the tested Telegram call; it does not prove a particular Telegram AEC implementation or guarantee the same behavior in every app.
 
+## Known interaction: AML + ViPER4AndroidFX
+
+After the successful baseline test, Audio Modification Library (AML) and ViPER4AndroidFX were enabled together and the phone booted normally. Static post-boot checks still showed the expected AEC-free overlay and Qualcomm NS. However, the user reported that speakerphone far-end echo returned during a call with both modules enabled.
+
+This is recorded as a **user-confirmed, live-call incompatibility**. It has not yet been isolated to AML, Viper, a Viper driver state, or their combination with a live ADB trace. Do not claim compatibility; keep both modules disabled until a dedicated A/B investigation is completed.
+
+### AML integration analysis
+
+Read-only inspection of the installed modules identifies a concrete configuration conflict:
+
+1. ViPER4AndroidFX ships its own `system/vendor/etc/audio_effects.xml`. That file contains the stock Qualcomm AEC declaration and the default `voice_communication` AEC application.
+2. The current Dipper module also ships `system/vendor/etc/audio_effects.xml`, but with those two AEC lines removed.
+3. AML's `post-fs-data.sh` moves audio configuration files from every enabled audio mod into its merge workspace. Its `service.sh` then merges effects and remounts the generated result before restarting `audioserver`.
+
+The current Dipper module is a raw overlay and does not provide AML's optional `aml.sh` hook. Consequently AML can merge Viper's stock-AEC configuration back into the final XML, undoing the fallback. This accounts for the observed echo returning when AML and Viper are enabled together.
+
+### Feasible AML-aware design
+
+An AML-aware version can include a small `aml.sh` hook. AML sources this hook after it has merged enabled audio mods. The hook would operate only on the final AML-managed vendor `audio_effects.xml` and remove exactly the same two AEC lines as the standalone overlay:
+
+```text
+<effect name="aec" ... />
+<apply effect="aec"/>
+```
+
+It would leave the Viper library/effect, Qualcomm NS, all mixer paths, ACDB, DSP data, and cellular voice path untouched. This is the correct integration point because it avoids mount-order competition between AML, Viper, and the fallback module.
+
+This design is **not yet verified on a live call**. Required validation is: (1) AML only, (2) AML + Viper with the new hook, and (3) Telegram speakerphone ADB trace plus far-end echo check. Until those pass, AML/Viper compatibility remains unsupported.
+
 ## Why this is device-specific
 
 Android selects default capture preprocessing from `/vendor/etc/audio_effects.xml`. That file lists vendor libraries and effect UUIDs which are not portable configuration values. Copying it to another model can remove effects that the other model needs.
