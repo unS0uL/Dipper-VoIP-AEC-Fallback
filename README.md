@@ -50,6 +50,15 @@ The Qualcomm NS entries remain unchanged:
 
 This applies to Android `VOICE_COMMUNICATION` capture, typically used by Telegram, Signal, Discord, and WebRTC-based apps. A cellular `VOICE_CALL` normally follows a separate vendor path, so it must be tested after installation.
 
+## Call coverage
+
+| Call type | What the module changes | Tested result on crDroid 10.10 |
+|---|---|---|
+| VoIP applications (Telegram/WebRTC) | Directly changes the default `VOICE_COMMUNICATION` AEC attachment | Speakerphone far-end echo removed; voice capture and NS remained acceptable |
+| Stock dialer / cellular call (3G/4G/VoLTE where available) | Does not directly reconfigure the separate `VOICE_CALL` vendor path | Earpiece and speakerphone calls completed without far-end echo or voice-quality regression |
+
+Do not interpret the cellular result as a claim that this module retunes cellular DSP. It is a post-install regression test: it confirms that the VoIP overlay did not harm the standard dialer path on the verified device.
+
 ## Compatibility — read before installing
 
 This is **not a universal audio module**. The release ZIP is intentionally restricted to Xiaomi Mi 8 (`dipper`) with one of these verified `audio_effects.xml` checksums:
@@ -62,6 +71,16 @@ This is **not a universal audio module**. The release ZIP is intentionally restr
 The installer aborts for another device or unknown vendor XML. Do not bypass this check. A copied `audio_effects.xml` from this device could hide required effects on another phone, even one using the same Snapdragon chipset.
 
 For a different Mi 8 ROM, first compare its vendor XML, reproduce the fault, inspect the active route/effects, and create a device-specific overlay from that ROM's own file.
+
+## crDroid support status
+
+| ROM | Status | Evidence |
+|---|---|---|
+| crDroid 10.10 / Android 14 | **Verified** | Live Telegram and cellular-call tests on the configuration listed above |
+| Official crDroid 11.17 / Android 15, `dipper`, build 2026-08-05 | **Code-compatible; not field-tested** | The official device and common source trees have the same SHA-256 for `audio_effects.xml`, `mixer_paths_tavil.xml`, `audio_platform_info.xml`, and both mixer overlay files as the verified Android 14 configuration. The installer checksum gate therefore accepts the known stock XML. |
+| Any future crDroid release or other ROM | **Not claimed** | Re-check the source XML and complete VoIP plus cellular-call tests before installation. |
+
+The latest official crDroid build published for `dipper` at the time of this analysis is 11.17 (Android 15). [Official download page](https://crdroid.net/dipper/11).
 
 ## Installation
 
@@ -107,17 +126,6 @@ Then reboot.
 - Do not alter gain, DMIC routing, echo-reference controls, ACDB, or DSP firmware live. Those parameters are HAL/DSP-owned and device-calibrated.
 - Not every VoIP application is guaranteed to supply a good software AEC fallback. Test each app independently.
 
-## Planned WebUI scope
-
-KsuWebUI can host a WebUI for Magisk modules. A safe future UI should offer only reboot-applied profiles and diagnostics:
-
-- **Recommended** — software-AEC fallback + Qualcomm NS;
-- **Stock** — restore Qualcomm AEC + Qualcomm NS;
-- **NS off** — a diagnostic comparison only;
-- module state, Fluence properties, and configuration hashes.
-
-It should not claim to tune internal Telegram/WebRTC processing or hidden Qualcomm DSP coefficients in real time.
-
 ## Technical documentation
 
 - [Technical research summary](docs/RESEARCH.md)
@@ -125,7 +133,6 @@ It should not claim to tune internal Telegram/WebRTC processing or hidden Qualco
 - [Android NoiseSuppressor API](https://developer.android.com/reference/android/media/audiofx/NoiseSuppressor)
 - [AOSP pre-processing configuration](https://source.android.com/docs/core/audio/implement-pre-processing)
 - [WebRTC Audio Processing Module](https://webrtc.googlesource.com/src/+/f981cb3d2e2b053669c2827332574907128592f3/modules/audio_processing/g3doc/audio_processing_module.md)
-- [KernelSU module WebUI format](https://github.com/tiann/KernelSU/blob/main/website/docs/guide/module-webui.md)
 
 ## Disclaimer
 

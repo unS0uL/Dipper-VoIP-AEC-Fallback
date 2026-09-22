@@ -105,11 +105,21 @@ Android selects default capture preprocessing from `/vendor/etc/audio_effects.xm
 
 The release installer enforces both device codename `dipper` and a known source XML checksum. Any port must start from the target ROM's own XML and repeat the route/effect verification.
 
-## WebUI feasibility
+## crDroid 11 / Android 15 source compatibility
 
-KsuWebUI can display a module-local WebUI. It can safely expose static, reboot-applied profiles and read-only diagnostics. It cannot safely expose real-time controls for closed Qualcomm Fluence coefficients, ACDB parameters, microphone routing, or Telegram's private WebRTC settings.
+The latest official `dipper` build available during this analysis is crDroid 11.17 / Android 15, build date 2026-08-05. Its OTA manifest identifies the device tree `crdroidandroid/android_device_xiaomi_dipper` and the common tree `crdroidandroid/android_device_xiaomi_sdm845-common`.
 
-Android's public `NoiseSuppressor` API controls enable/disable state, not a universal suppression-strength parameter. Qualcomm's device tuning uses QACT/ACDB workflows and device measurements; it is not a safe end-user slider.
+The 15.0 branch heads reviewed were `c3aaa8264afe8e9feebde82536bfb43c90c67c56` (device) and `3f83acb51e8aa061581262bb963ef1d2134b4d38` (common). The following 15.0 source files have exactly the same SHA-256 values as the verified 14.0 sources:
+
+| File | SHA-256 |
+|---|---|
+| `common/audio/audio_effects.xml` | `6eb46150017639cd283c8c6e4aee8b39ac7b1a9849104e7ab2a6bd048b6b35e6` |
+| `common/audio/mixer_paths_tavil.xml` | `e91b9fa2e5c47dc0c3b77de82884d107211c36d542b95e0f3ea5c1d9a9ce67b9` |
+| `dipper/audio/audio_platform_info.xml` | `9c191833a73b217382a042cd0ccaddf56c6c15e0e721f899273a0dc541a733e4` |
+| `dipper/audio/mixer_paths_overlay_static.xml` | `6f4173200a7ba4a64397245fe3b2733ebe6b957dffb0236386c2fd4c6945b6c3` |
+| `dipper/audio/mixer_paths_overlay_dynamic.xml` | `eec92864bf318d058eb63e18cfce081426581b5e5ff8c16935e0e8a3f2007df6` |
+
+This is strong evidence for **code compatibility**, not a field validation. Android 15 must still be tested after installation with VoIP and cellular calls. Future builds must be re-evaluated rather than assumed compatible.
 
 ## Primary sources
 
