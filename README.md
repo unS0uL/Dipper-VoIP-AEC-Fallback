@@ -65,8 +65,8 @@ For a different Mi 8 ROM, first compare its vendor XML, reproduce the fault, ins
 
 ## Installation
 
-Current tested build: [`Dipper-VoIP-AEC-Fallback-v1.1.zip`](Dipper-VoIP-AEC-Fallback-v1.1.zip)  
-SHA-256: `7ac911044e67cdfe88db4b612bbd294332e0df971d064c7de229f1368a404b97`
+Current tested build: [Dipper-VoIP-AEC-Fallback-v1.2.zip](https://github.com/unS0uL/Dipper-VoIP-AEC-Fallback/releases/latest)
+SHA-256: `e6c19c56110c3a0c5614c4a6b86086158ea73d8b7569f68331314cdb8545f5de`
 
 1. Back up your boot image and make sure Magisk works.
 2. Download the current release ZIP above or from GitHub Releases.
@@ -94,7 +94,7 @@ For the verified profile, the active VoIP record chain contains `Noise Suppressi
 The original `/vendor/etc/audio_effects.xml` returns automatically because `/vendor` is never written. If the Magisk app is unavailable, create the module's `disable` file from recovery or ADB:
 
 ```sh
-su -c 'touch /data/adb/modules/mi8_voip_software_aec_test/disable'
+su -c 'touch /data/adb/modules/dipper_voip_aec_fallback/disable'
 ```
 
 Then reboot.
