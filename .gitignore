@@ -1,0 +1,5 @@
+# Local session notes retained outside the public English documentation.
+docs/*-RU.md
+
+# Superseded diagnostic build; publish only the current release ZIP.
+mi8-voip-software-aec-test-v1.0.zip

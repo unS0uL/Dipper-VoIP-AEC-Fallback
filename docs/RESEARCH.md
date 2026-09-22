@@ -1,0 +1,122 @@
+# Technical research summary
+
+This document records the evidence behind the module design. It is not an installation guide; see the [project README](../README.md) first.
+
+## Problem statement
+
+On a Xiaomi Mi 8 (`dipper`) running crDroid 10.10 / Android 14, the far end heard a strong copy of its own speech during Telegram speakerphone calls. The same phone had acceptable voice capture in earpiece mode. Restoring a single-microphone Fluence route reduced echo but degraded ordinary VoIP capture, so it was rejected as a permanent workaround.
+
+## Hardware and software path
+
+```text
+VoIP app / WebRTC
+  -> Android AudioRecord (VOICE_COMMUNICATION)
+  -> Android audio effects configuration
+  -> Qualcomm audio HAL and sound-device selection
+  -> mixer_paths_tavil.xml
+  -> Qualcomm Fluence / ACDB / ADSP
+  -> WCD9340 codec and microphone array
+```
+
+Relevant mixer paths in the tested vendor:
+
+| Use case | Mixer path | Microphone transport |
+|---|---|---|
+| Handset end-fire | `handset-dmic-endfire` | DMIC2 + DMIC4 |
+| Speaker end-fire | `speaker-dmic-endfire` | DMIC1 + DMIC5 |
+| Speaker single mic | `speaker-mic` | DMIC1 |
+| VoIP speaker reference | `echo-reference voip-speaker` | `QUAT_MI2S_TX` |
+
+The speakerphone path is therefore not missing a second microphone or an echo-reference definition.
+
+## Evidence collected
+
+### Active failing path before the fix
+
+During Telegram calls:
+
+- audio mode: `MODE_IN_COMMUNICATION`;
+- capture source: `VOICE_COMMUNICATION`, mono, 48 kHz;
+- output: speakerphone;
+- Qualcomm `Acoustic Echo Canceler` and `Noise Suppression` were attached to the record session;
+- HAL selected `speaker-dmic-endfire` for `audio-record-voip`.
+
+This ruled out the common explanation that the app was using a normal-media capture path without AEC/NS.
+
+### Vendor components verified
+
+The tested vendor contains the expected Qualcomm components:
+
+| Component | SHA-256 |
+|---|---|
+| `Forte_Speaker_cal.acdb` | `5aa4ab6f404d23bbc79c9cc7a3e5ad0af6132952861e7a9311bcdc79776a5d80` |
+| `Forte_Handset_cal.acdb` | `e79e3c77b4bf2e8235d6a77d9029de14a1c56901796ba15c5e9231acc6cab2fa` |
+| `Forte_Global_cal.acdb` | `abc719a85691d27be9ffe12e8dea6f66234198227aeb895de1f41c88d2228ef1` |
+| `adsp_avs_config.acdb` | `80574d33b788902951e6fce1318dbce0438eb9c5bc123bc7d9b5842d41dec9c8` |
+| 32-bit `libqcomvoiceprocessing.so` | `c19aaca8162817272c5ec2222fad7ee56ebf59702e06060fa5893ec991673a6d` |
+
+The three Forte calibration files match the Mi 8 MIUI-derived vendor blobs used by LineageOS. That makes a missing DSP library or a generic ACDB replacement an unlikely and unsafe solution.
+
+### Configuration provenance
+
+The local `/vendor/etc/mixer_paths_tavil.xml` has SHA-256:
+
+```text
+e91b9fa2e5c47dc0c3b77de82884d107211c36d542b95e0f3ea5c1d9a9ce67b9
+```
+
+It exactly matches the LineageOS Xiaomi SDM845-common configuration. The relevant speakerphone/end-fire/echo-reference sections were unchanged from the earlier MIUI-derived configuration. No evidence justified transplanting another device's mixer XML.
+
+## Rejected approaches
+
+| Approach | Why it was rejected |
+|---|---|
+| Import ACDB, ADSP firmware, or audio libraries from another phone | These files are calibrated for microphone sensitivity, enclosure acoustics, device IDs, and delays. They can worsen echo or break audio. |
+| Permanently set `persist.vendor.audio.fluence.speaker=false` | It reduced echo in a temporary experiment but impaired ordinary VoIP capture and did not switch cleanly inside a session. |
+| Manually force an echo-reference mixer control | A live A/B test did not produce a meaningful improvement; HAL-owned controls can be reset on route changes. |
+| Raise microphone gain | It increases both background noise and residual echo. |
+| Install a generic audio enhancer | Equalizers and playback enhancements do not repair capture-path AEC. |
+
+## Implemented experiment
+
+The module uses a Magisk overlay of the tested device's `audio_effects.xml` and removes only:
+
+1. the Qualcomm `aec` effect declaration;
+2. the default `<apply effect="aec"/>` for the `voice_communication` stream.
+
+The `ns` declaration and default application remain. No physical vendor file is modified.
+
+After reboot, a live Telegram speakerphone call showed:
+
+- `MODE_IN_COMMUNICATION`;
+- output speaker;
+- input `speaker-dmic-endfire`, ACDB 116;
+- Qualcomm Noise Suppression present;
+- Qualcomm Android AEC absent;
+- user-reported major echo reduction, normal voice level, and acceptable noise suppression.
+
+Telegram earpiece calls and cellular calls in both modes also passed a user test without regression.
+
+The Android framework does not reveal Telegram's internal algorithm. Therefore the correct statement is: removing the ineffective Android hardware AEC allowed an effective application-level fallback in the tested Telegram call; it does not prove a particular Telegram AEC implementation or guarantee the same behavior in every app.
+
+## Why this is device-specific
+
+Android selects default capture preprocessing from `/vendor/etc/audio_effects.xml`. That file lists vendor libraries and effect UUIDs which are not portable configuration values. Copying it to another model can remove effects that the other model needs.
+
+The release installer enforces both device codename `dipper` and a known source XML checksum. Any port must start from the target ROM's own XML and repeat the route/effect verification.
+
+## WebUI feasibility
+
+KsuWebUI can display a module-local WebUI. It can safely expose static, reboot-applied profiles and read-only diagnostics. It cannot safely expose real-time controls for closed Qualcomm Fluence coefficients, ACDB parameters, microphone routing, or Telegram's private WebRTC settings.
+
+Android's public `NoiseSuppressor` API controls enable/disable state, not a universal suppression-strength parameter. Qualcomm's device tuning uses QACT/ACDB workflows and device measurements; it is not a safe end-user slider.
+
+## Primary sources
+
+- [Android AEC API](https://developer.android.com/reference/android/media/audiofx/AcousticEchoCanceler)
+- [Android NS API](https://developer.android.com/reference/android/media/audiofx/NoiseSuppressor)
+- [AOSP: configure preprocessing effects](https://source.android.com/docs/core/audio/implement-pre-processing)
+- [Qualcomm audio HAL: Fluence device mapping](https://android.googlesource.com/platform/hardware/qcom/audio/+/ee6d1cac7542f70f90f8203b3908ad5f24d016fe/hal/msm8974/platform.c)
+- [Qualcomm on AEC sensitivity to acoustics and microphone arrays](https://www.qualcomm.com/news/onq/2021/01/fundamentals-voice-ui-part-i-building-blocks)
+- [WebRTC Audio Processing Module](https://webrtc.googlesource.com/src/+/f981cb3d2e2b053669c2827332574907128592f3/modules/audio_processing/g3doc/audio_processing_module.md)
+- [LineageOS issue #477: analogous ineffective speakerphone AEC route](https://github.com/LineageOS/issues/issues/477)
