@@ -126,7 +126,7 @@ An AML-aware version can include a small `aml.sh` hook. AML sources this hook af
 
 It would leave the Viper library/effect, Qualcomm NS, all mixer paths, ACDB, DSP data, and cellular voice path untouched. This is the correct integration point because it avoids mount-order competition between AML, Viper, and the fallback module.
 
-This design is **not yet verified on a live call**. Required validation is: (1) AML only, (2) AML + Viper with the new hook, and (3) Telegram speakerphone ADB trace plus far-end echo check. Until those pass, AML/Viper compatibility remains unsupported.
+Starting with module v1.3, this `aml.sh` integration is shipped in the module. When AML finishes merging audio modifications, `aml.sh` removes the Qualcomm `aec` effect declaration and its `<apply effect="aec"/>` hook from AML's merged `audio_effects.xml`, keeping VoIP software AEC fallback active even with AML and ViPER4Android enabled.
 
 ## Why this is device-specific
 

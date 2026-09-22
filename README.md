@@ -1,6 +1,6 @@
 # Dipper VoIP AEC Fallback
 
-A small systemless Magisk module for Xiaomi Mi 8 (`dipper`) that fixes severe far-end echo during speakerphone VoIP calls.
+A small systemless Magisk module for Xiaomi Mi 8 (`dipper`) that fixes severe far-end echo during speakerphone VoIP calls on crDroid ROMs (tested on crDroid 10.10 / Android 14 and verified code-compatible with the latest official crDroid 11.17 / Android 15).
 
 It targets one specific failure mode: Qualcomm hardware AEC is exposed and enabled, but fails to cancel echo on the speakerphone capture route. The module does **not** replace DSP firmware, ACDB calibration, the audio HAL, `/vendor`, drivers, or microphone routing. It only stops Android from automatically attaching that faulty AEC to `VOICE_COMMUNICATION` capture. Stock Qualcomm Noise Suppression (NS) remains enabled.
 
@@ -84,8 +84,8 @@ The latest official crDroid build published for `dipper` at the time of this ana
 
 ## Installation
 
-Current tested build: [Dipper-VoIP-AEC-Fallback-v1.2.zip](https://github.com/unS0uL/Dipper-VoIP-AEC-Fallback/releases/latest)
-SHA-256: `e6c19c56110c3a0c5614c4a6b86086158ea73d8b7569f68331314cdb8545f5de`
+Current tested build: [Dipper-VoIP-AEC-Fallback-v1.3.zip](https://github.com/unS0uL/Dipper-VoIP-AEC-Fallback/releases/latest)
+SHA-256: `01437d9eec340fddc219af88a49706e6f04094f9be41a23c051a6311dbeda12e`
 
 1. Back up your boot image and make sure Magisk works.
 2. Download the current release ZIP above or from GitHub Releases.
@@ -125,7 +125,7 @@ Then reboot.
 - Keyboard clicks are short transients, not steady noise. Stronger generic NS can damage consonants and make speech metallic before it removes all keyboard noise.
 - Do not alter gain, DMIC routing, echo-reference controls, ACDB, or DSP firmware live. Those parameters are HAL/DSP-owned and device-calibrated.
 - Not every VoIP application is guaranteed to supply a good software AEC fallback. Test each app independently.
-- **Known incompatibility (user-reported):** enabling both Audio Modification Library (AML) and ViPER4AndroidFX caused speakerphone far-end echo to return. Keep both modules disabled with this module until their interaction is investigated with a live call trace.
+- **Audio Modification Library (AML) & ViPER4AndroidFX support:** Starting with v1.3, the module includes an `aml.sh` hook. When AML re-assembles the audio configuration for audio mods like ViPER4AndroidFX, `aml.sh` automatically strips the broken Qualcomm AEC attachment from the merged `audio_effects.xml`, preventing speakerphone far-end echo from returning.
 
 ## Technical documentation
 
